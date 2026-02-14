@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoBlogger Pro - Final Update</title>
+    <title>AutoBlogger Pro - Forced Update</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Google API Client for Blogger -->
@@ -475,12 +475,11 @@
         import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai";
 
         // --- HARDCODED USER CONFIGURATION ---
-        // UPDATED WITH USER'S SPECIFIC CREDENTIALS
         const DEFAULT_CONFIG = {
             clientid: "699259843998-r037jfmftsnf9m23nm5pofmvrgckhg8k.apps.googleusercontent.com",
             blogid: "1490190686394344305",
             geminikey: "AIzaSyCJ9ycvNIeJ883OPRnJKWeat58hiX3VMOE",
-            pexelskey: "", // Empty as not provided
+            pexelskey: "",
             model: "gemma-3-27b-it"
         };
 
@@ -497,14 +496,11 @@
 
         // --- Initialization ---
         window.addEventListener('load', () => {
-            const saved = localStorage.getItem('autoBloggerProConfig');
-            if (!saved) {
-                console.log("Auto-installing credentials...");
-                localStorage.setItem('autoBloggerProConfig', JSON.stringify(DEFAULT_CONFIG));
-                APP.config = DEFAULT_CONFIG;
-            } else {
-                APP.config = JSON.parse(saved);
-            }
+            // !!! FORCE UPDATE !!!
+            // This line overwrites whatever is in your browser memory with the correct keys
+            localStorage.setItem('autoBloggerProConfig', JSON.stringify(DEFAULT_CONFIG));
+            APP.config = DEFAULT_CONFIG;
+            console.log("CRITICAL: Credentials FORCED UPDATED from code.");
 
             if (APP.config.geminikey) {
                 APP.gemini = new GoogleGenerativeAI(APP.config.geminikey);
@@ -530,11 +526,13 @@
                 document.getElementById('fileArea').classList.toggle('hidden', e.target.value !== 'file');
             });
 
+            // Check Setup - strictly speaking not needed now because we forced it, but kept for safety
             checkSetup();
-            log("System ready. Credentials loaded.", "success");
+            log("System ready. Credentials FORCED UPDATED.", "success");
         });
 
         function checkSetup() {
+            // Since we force update in load(), this modal shouldn't appear unless keys are missing in code
             if (!APP.config.clientid) {
                 document.getElementById('setupModal').style.display = 'flex';
             }
