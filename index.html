@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoBlogger Pro - Forced Update</title>
+    <title>AutoBlogger Pro - Error Fix</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Google API Client for Blogger -->
@@ -44,7 +44,7 @@
         }
         .nav-item:hover, .nav-item.active { background: #1e293b; color: white; border-left: 4px solid var(--primary); }
         
-        .main-content { flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 2rem; }
+        .main-content { flex: 1; overflow-y: auto; padding: 2rem; display: flex; column; gap: 2rem; }
         
         /* Views */
         .view-section { display: none; animation: fadeIn 0.3s ease; }
@@ -164,7 +164,7 @@
             </div>
 
             <div class="form-group" style="text-align: left;">
-                <label style="color: var(--text-main);">Pexels API Key (Optional)</label>
+                <label style="color: var(--text-main);">Pexels API Key</label>
                 <input type="password" id="setupPexelsKey">
             </div>
 
@@ -479,7 +479,7 @@
             clientid: "699259843998-r037jfmftsnf9m23nm5pofmvrgckhg8k.apps.googleusercontent.com",
             blogid: "1490190686394344305",
             geminikey: "AIzaSyCJ9ycvNIeJ883OPRnJKWeat58hiX3VMOE",
-            pexelskey: "",
+            pexelskey: "zktXZfZyxDvRiAHbfd2fTR0cioV6pRyNSLRacwfUU13gWVXl7ZVI73kB", // Old Key Restored
             model: "gemma-3-27b-it"
         };
 
@@ -496,11 +496,10 @@
 
         // --- Initialization ---
         window.addEventListener('load', () => {
-            // !!! FORCE UPDATE !!!
-            // This line overwrites whatever is in your browser memory with the correct keys
+            // FORCE UPDATE
             localStorage.setItem('autoBloggerProConfig', JSON.stringify(DEFAULT_CONFIG));
             APP.config = DEFAULT_CONFIG;
-            console.log("CRITICAL: Credentials FORCED UPDATED from code.");
+            console.log("Credentials Forced Updated.");
 
             if (APP.config.geminikey) {
                 APP.gemini = new GoogleGenerativeAI(APP.config.geminikey);
@@ -526,13 +525,11 @@
                 document.getElementById('fileArea').classList.toggle('hidden', e.target.value !== 'file');
             });
 
-            // Check Setup - strictly speaking not needed now because we forced it, but kept for safety
             checkSetup();
-            log("System ready. Credentials FORCED UPDATED.", "success");
+            log("System ready. Credentials loaded.", "success");
         });
 
         function checkSetup() {
-            // Since we force update in load(), this modal shouldn't appear unless keys are missing in code
             if (!APP.config.clientid) {
                 document.getElementById('setupModal').style.display = 'flex';
             }
@@ -695,6 +692,18 @@
             document.execCommand(cmd, false, value);
         }
 
+        // Helper to get better error messages
+        function getErrorMessage(e) {
+            if (e.result && e.result.error && e.result.error.message) {
+                return e.result.error.message;
+            } else if (e.error && e.error.message) {
+                return e.error.message;
+            } else if (e.message) {
+                return e.message;
+            }
+            return JSON.stringify(e);
+        }
+
         async function publishToBlogger(title, body, tags, isDraft) {
             if (!APP.auth) throw new Error("Not authenticated");
             if (!APP.config.blogid) throw new Error("Blog ID missing");
@@ -731,9 +740,12 @@
                     }
                 };
                 
-                let response;
-                
                 const insertRes = await gapi.client.blogger.posts.insert(requestObj);
+                
+                if (!insertRes.result.id) {
+                    throw new Error("Blogger API did not return a Post ID after insertion.");
+                }
+
                 const postId = insertRes.result.id;
 
                 if (!isDraft) {
@@ -753,7 +765,7 @@
                 }
 
             } catch (e) {
-                log("Publish failed: " + e.message, "error");
+                log("Publish failed: " + getErrorMessage(e), "error");
             }
         };
 
@@ -850,6 +862,10 @@
                         resource: { title: data.title, content: body, labels: [topic] }
                     });
                     
+                    if (!insertRes.result.id) {
+                         throw new Error("Insert successful but no ID returned.");
+                    }
+
                     await gapi.client.blogger.posts.publish({
                         blogId: APP.config.blogid,
                         postId: insertRes.result.id
@@ -859,7 +875,9 @@
                     addToHistory(data.title, "Published", new Date());
 
                 } catch (e) {
-                    log(`FAILED: ${topic} - ${e.message}`, "error");
+                    // FIXED ERROR LOGGING HERE
+                    const errorMsg = getErrorMessage(e);
+                    log(`FAILED: ${topic} - ${errorMsg}`, "error");
                     addToHistory(topic, "Error", new Date());
                 }
 
