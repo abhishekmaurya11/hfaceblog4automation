@@ -450,11 +450,11 @@
     <script>
         // --- CONFIGURATION ---
         const DEFAULT_CONFIG = {
-            clientid: "699259843998-qg5t2emtfubf2gpj7hbfrdgbi3lqocl5.apps.googleusercontent.com", 
+            clientid: "699259843998-r037jfmftsnf9m23nm5pofmvrgckhg8k.apps.googleusercontent.com", // UPDATED NEW ID
             blogid: "27642592627975591",
-            hfkey: "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", // USER PROVIDED KEY
+            hfkey: "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", 
             pexelskey: "zktXZfZyxDvRiAHbfd2fTR0cioV6pRyNSLRacwfUU13gWVXl7ZVI73kB",
-            model: "THUDM/glm-4-9b-chat" // GLM-4
+            model: "THUDM/glm-4-9b-chat" 
         };
 
         const APP = {
@@ -473,6 +473,12 @@
                 document.getElementById('setupModal').style.display = 'flex';
             } else {
                 APP.config = JSON.parse(saved);
+                // Auto-migrate to new Client ID if old one is found
+                if(APP.config.clientid !== DEFAULT_CONFIG.clientid) {
+                    console.log("Updating Client ID...");
+                    APP.config.clientid = DEFAULT_CONFIG.clientid;
+                    localStorage.setItem('autoBloggerHFConfig', JSON.stringify(APP.config));
+                }
             }
 
             // Populate Inputs
@@ -559,8 +565,6 @@
             }
             prompt += ` Tone: ${tone}. Output ONLY valid JSON: { "title": "...", "body": "...", "meta": "..." }`;
 
-            // Hugging Face Inference API Call
-            // GLM-4 requires specific chat template tokens
             const fullPrompt = `<|im_start|>system\nYou are an expert blog content writer. You output valid JSON only.<|im_end|>\n<|im_start|>user\n${prompt}<|im_end|>\n<|im_start|>assistant\n`;
 
             const response = await fetch(`https://api-inference.huggingface.co/models/${APP.config.model}`, {
@@ -585,15 +589,12 @@
             }
 
             const data = await response.json();
-            // HF returns an array, we want the first element's generated_text
             let text = Array.isArray(data) ? data[0].generated_text : data.generated_text;
             
             try {
-                // Clean up markdown code blocks if present
                 let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
                 return JSON.parse(clean);
             } catch (e) {
-                // Fallback: Try to find a JSON object in the string
                 const match = text.match(/\{[\s\S]*\}/);
                 return match ? JSON.parse(match[0]) : { title: topic, body: text, meta: "Auto generated" };
             }
