@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoBlogger Pro - Hugging Face GLM-4 Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Google API Client for Blogger -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <!-- Google Identity Services (OAuth) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #FFD21E; /* Hugging Face Yellow */
+            --primary-dark: #F5C600;
+            --primary-light: #FFF9C4;
+            --secondary: #64748b;
+            --bg-sidebar: #ffffff;
+            --bg-body: #f8fafc; 
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        * { box-sizing: border-box; outline: none; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        .sidebar {
+            width: 260px; background: var(--bg-sidebar); color: var(--text-main); display: flex; flex-direction: column; flex-shrink: 0;
+            border-right: 1px solid var(--border);
+        }
+        .brand { padding: 1.5rem; font-size: 1.25rem; font-weight: 800; color: var(--text-main); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px; }
+        .nav-menu { flex: 1; padding: 1rem 0; overflow-y: auto; }
+        .nav-item {
+            padding: 0.8rem 1.5rem; cursor: pointer; display: flex; align-items: center; gap: 12px; color: var(--text-light); transition: 0.2s; font-weight: 500; font-size: 0.95rem;
+        }
+        .nav-item:hover { background: #f1f5f9; color: var(--text-main); }
+        .nav-item.active { background: var(--primary-light); color: #d97706; border-right: 3px solid var(--primary); }
+        
+        .main-content { flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 2rem; background: var(--bg-body); }
+        
+        .view-section { display: none; animation: fadeIn 0.3s ease; }
+        .view-section.active { display: block; }
+        
+        .card { background: var(--bg-card); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 1.5rem; }
+        .card-header { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        
+        .stat-box { background: #ffffff; padding: 1.5rem; border-radius: var(--radius); text-align: center; border: 1px solid var(--border); }
+        .stat-number { font-size: 2.5rem; font-weight: 700; color: #d97706; }
+        .stat-label { color: var(--text-light); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--text-main); }
+        input, select, textarea {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius);
+            font-family: inherit; transition: 0.2s; background: #fff; color: var(--text-main);
+        }
+        input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255, 210, 30, 0.2); }
+        
+        .btn {
+            padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; font-size: 0.9rem;
+        }
+        .btn-primary { background: var(--primary); color: #0f172a; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: var(--secondary); color: white; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .editor-toolbar { border: 1px solid var(--border); border-bottom: none; padding: 0.5rem; border-radius: var(--radius) var(--radius) 0 0; background: #f8fafc; display: flex; gap: 5px; }
+        .editor-btn { background: none; border: none; padding: 5px 10px; cursor: pointer; color: var(--text-light); border-radius: 4px; }
+        .editor-btn:hover { background: #e2e8f0; color: var(--text-main); }
+        #postEditor { border-radius: 0 0 var(--radius) var(--radius); min-height: 300px; border: 1px solid var(--border); padding: 1rem; background: white; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 1rem; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-light); font-size: 0.85rem; text-transform: uppercase; background: #f8fafc; }
+        tr:hover td { background: #f8fafc; }
+
+        .terminal {
+            background: #f1f5f9; color: #334155; font-family: 'Fira Code', monospace;
+            padding: 1rem; border-radius: var(--radius); height: 200px; overflow-y: auto;
+            font-size: 0.85rem; border: 1px solid #cbd5e1;
+        }
+        .log-time { color: #94a3b8; margin-right: 10px; font-size: 0.8em; }
+        .log-success { color: #059669; font-weight: 600; }
+        .log-error { color: #dc2626; font-weight: 600; }
+
+        .switch { position: relative; display: inline-block; width: 48px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        .hidden { display: none !important; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .badge-pub { background: #dcfce7; color: #166534; }
+        .badge-draft { background: #fef9c3; color: #854d0e; }
+        .badge-err { background: #fee2e2; color: #991b1b; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .setup-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .setup-card {
+            background: white;
+            padding: 3rem;
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border);
+        }
+        .setup-card h1 { color: #d97706; margin-top: 0; }
+        .setup-card p { color: var(--text-light); margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+
+    <div id="setupModal" class="setup-overlay">
+        <div class="setup-card">
+            <h1><i class="fa-solid fa-robot"></i> Setup Required</h1>
+            <p>Configure your API keys to start.</p>
+            <div class="form-group" style="text-align: left;">
+                <label style="color: var(--text-main);">Google Client ID (Blogger)</label>
+                <input type="text" id="setupClientId">
+            </div>
+            <div class="form-group" style="text-align: left;">
+                <label style="color: var(--text-main);">Blogger Blog ID</label>
+                <input type="text" id="setupBlogId">
+            </div>
+            <div class="form-group" style="text-align: left;">
+                <label style="color: var(--text-main);">Hugging Face Token</label>
+                <input type="password" id="setupHFKey" placeholder="hf_...">
+            </div>
+            <div class="form-group" style="text-align: left;">
+                <label style="color: var(--text-main);">Pexels API Key (Optional)</label>
+                <input type="password" id="setupPexelsKey">
+            </div>
+            <button class="btn btn-primary" style="width: 100%; justify-content: center; color: #0f172a;" onclick="finishSetup()">
+                Start Automation
+            </button>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="brand">
+            <i class="fa-solid fa-face-smile" style="color: #d97706;"></i> HF Blogger
+        </div>
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="switchView('dashboard')">
+                <i class="fa-solid fa-chart-line"></i> Dashboard
+            </div>
+            <div class="nav-item" onclick="switchView('editor')">
+                <i class="fa-solid fa-pen-nib"></i> Post Generator
+            </div>
+            <div class="nav-item" onclick="switchView('queue')">
+                <i class="fa-solid fa-list-check"></i> Queue & Import
+            </div>
+            <div class="nav-item" onclick="switchView('automation')">
+                <i class="fa-solid fa-bolt"></i> Automation
+            </div>
+            <div class="nav-item" onclick="switchView('history')">
+                <i class="fa-solid fa-clock-rotate-left"></i> History
+            </div>
+            <div class="nav-item" onclick="switchView('settings')">
+                <i class="fa-solid fa-gear"></i> Settings
+            </div>
+            <div style="margin-top: auto; padding: 1.5rem; border-top: 1px solid var(--border);">
+                <button class="btn btn-danger" id="authBtn" style="width: 100%; background: #d97706;" onclick="handleAuth()">
+                    <i class="fa-brands fa-google"></i> Connect Blogger
+                </button>
+                <div id="connectionStatus" style="text-align: center; margin-top: 10px; font-size: 0.8rem; color: #94a3b8;">Not Connected</div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <!-- Dashboard -->
+        <div id="dashboard" class="view-section active">
+            <h1 style="margin-top:0;">Overview</h1>
+            <div class="grid-3">
+                <div class="card stat-box">
+                    <div class="stat-number" id="statTotal">0</div>
+                    <div class="stat-label">Total Posts</div>
+                </div>
+                <div class="card stat-box">
+                    <div class="stat-number" id="statQueue">0</div>
+                    <div class="stat-label">Queue Items</div>
+                </div>
+                <div class="card stat-box">
+                    <div class="stat-number" id="statStatus">Idle</div>
+                    <div class="stat-label">System Status</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><span>Recent Activity</span></div>
+                <div class="terminal" id="dashboardLog">
+                    <div><span class="log-time">System:</span> Ready.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor -->
+        <div id="editor" class="view-section">
+            <h1 style="margin-top:0;">Content Generator</h1>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="form-group">
+                        <label>Topic / Keyword</label>
+                        <input type="text" id="singleTopic" placeholder="e.g. The Future of AI in 2025">
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>Template</label>
+                            <select id="singleTemplate">
+                                <option value="article">Standard Article</option>
+                                <option value="listicle">Top 10 Listicle</option>
+                                <option value="review">Product Review</option>
+                                <option value="howto">How-To Guide</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tone</label>
+                            <select id="singleTone">
+                                <option value="professional">Professional</option>
+                                <option value="casual">Casual</option>
+                                <option value="technical">Technical</option>
+                                <option value="marketing">Marketing/Sales</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Auto-Tags (Comma separated)</label>
+                        <input type="text" id="singleTags" placeholder="e.g. tech, ai, future">
+                    </div>
+                    <div style="display:flex; gap: 10px;">
+                        <button class="btn btn-primary" style="flex:1; color: #0f172a;" onclick="generateContent('single')">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate AI Content
+                        </button>
+                        <button class="btn btn-secondary" onclick="fetchAndInsertImage()">
+                            <i class="fa-solid fa-image"></i> Add Image
+                        </button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span>Post Preview</span>
+                        <div>
+                            <label style="display:inline-flex; align-items:center; gap:5px; font-weight:400; font-size:0.85rem;">
+                                <input type="checkbox" id="isDraft"> Save as Draft
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Post Title</label>
+                        <input type="text" id="postTitle">
+                    </div>
+                    <div class="form-group">
+                        <label>Meta Description</label>
+                        <input type="text" id="postMeta" placeholder="SEO Description">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Body Content (HTML)</label>
+                        <div class="editor-toolbar">
+                            <button class="editor-btn" onclick="formatDoc('bold')"><i class="fa-solid fa-bold"></i></button>
+                            <button class="editor-btn" onclick="formatDoc('italic')"><i class="fa-solid fa-italic"></i></button>
+                            <button class="editor-btn" onclick="formatDoc('insertUnorderedList')"><i class="fa-solid fa-list-ul"></i></button>
+                            <button class="editor-btn" onclick="formatDoc('h2')"><i class="fa-solid fa-heading"></i></button>
+                            <button class="editor-btn" onclick="toggleVisual()"><i class="fa-solid fa-eye"></i></button>
+                        </div>
+                        <textarea id="postEditor"></textarea>
+                        <div id="visualPreview" style="border: 1px solid var(--border); padding: 1rem; margin-top: -1px; display: none; min-height: 300px; background: white;"></div>
+                    </div>
+                    <button class="btn btn-success" style="width: 100%;" onclick="publishPost('single')">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Publish to Blogger
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Queue -->
+        <div id="queue" class="view-section">
+            <h1 style="margin-top:0;">Queue Management</h1>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">Import Topics</div>
+                    <div class="form-group">
+                        <label>Import Type</label>
+                        <select id="importType">
+                            <option value="text">Paste Text</option>
+                            <option value="file">Upload CSV/TXT File</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="pasteArea">
+                        <label>Paste Keywords (One per line)</label>
+                        <textarea id="importText" style="height: 200px;"></textarea>
+                    </div>
+                    <div class="form-group hidden" id="fileArea">
+                        <label>Select File</label>
+                        <input type="file" id="importFile" accept=".txt,.csv">
+                    </div>
+                    <button class="btn btn-primary" style="color: #0f172a;" onclick="processImport()">
+                        <i class="fa-solid fa-file-import"></i> Add to Queue
+                    </button>
+                </div>
+                <div class="card" style="display:flex; flex-direction:column;">
+                    <div class="card-header">
+                        <span>Current Queue</span>
+                        <button class="btn btn-danger" style="font-size:0.8rem; padding: 0.4rem;" onclick="clearQueue()">Clear</button>
+                    </div>
+                    <div style="flex:1; overflow-y:auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff;">
+                        <ul id="queueList" style="list-style: none; padding: 0; margin: 0;">
+                            <li style="padding:1rem; text-align:center; color: var(--text-light);">Queue is empty</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 1rem; text-align: right;">
+                        <strong>Items: <span id="queueCount">0</span></strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Automation -->
+        <div id="automation" class="view-section">
+            <h1 style="margin-top:0;">Super Loop Automation</h1>
+            <div class="card">
+                <div class="grid-3">
+                    <div class="form-group">
+                        <label>Batch Template</label>
+                        <select id="batchTemplate">
+                            <option value="article">Standard</option>
+                            <option value="listicle">Listicle</option>
+                            <option value="news">News Style</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Delay (Seconds)</label>
+                        <input type="number" id="batchDelay" value="15"> <!-- Increased delay for HF cold starts -->
+                    </div>
+                    <div class="form-group">
+                        <label>Auto-Images</label>
+                        <div style="display:flex; align-items:center; height: 46px;">
+                            <label class="switch">
+                                <input type="checkbox" id="batchImages" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span style="margin-left: 10px; font-size: 0.9rem;">Fetch from Pexels</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                    <button id="startBatchBtn" class="btn btn-success" onclick="startAutomation()">
+                        <i class="fa-solid fa-play"></i> Start Auto-Pilot Loop
+                    </button>
+                    <button id="stopBatchBtn" class="btn btn-danger hidden" onclick="stopAutomation()">
+                        <i class="fa-solid fa-stop"></i> Stop Processing
+                    </button>
+                </div>
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>Process Log</label>
+                    <div class="terminal" id="automationLog">
+                        <div><span class="log-time">System:</span> Waiting to start...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div id="history" class="view-section">
+            <h1 style="margin-top:0;">Publishing History</h1>
+            <div class="card">
+                <table id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="btn btn-secondary" onclick="clearHistory()">Clear History</button>
+        </div>
+
+        <!-- Settings -->
+        <div id="settings" class="view-section">
+            <h1 style="margin-top:0;">Configuration</h1>
+            <div class="card">
+                <div class="card-header">Blogger API</div>
+                <div class="form-group">
+                    <label>Blog ID</label>
+                    <input type="text" id="cfgBlogId">
+                </div>
+                <div class="form-group">
+                    <label>Google Client ID (OAuth)</label>
+                    <input type="text" id="cfgClientId">
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">AI & Media APIs</div>
+                <div class="form-group">
+                    <label>Hugging Face Token</label>
+                    <input type="password" id="cfgHFKey" placeholder="hf_...">
+                </div>
+                <div class="form-group">
+                    <label>Pexels API Key (Images)</label>
+                    <input type="password" id="cfgPexelsKey">
+                </div>
+                <div class="form-group">
+                    <label>Model ID</label>
+                    <select id="cfgModel">
+                        <option value="THUDM/glm-4-9b-chat">GLM-4 9B Chat (Recommended)</option>
+                        <option value="meta-llama/Meta-Llama-3-8B-Instruct">Llama 3 8B Instruct</option>
+                        <option value="mistralai/Mistral-7B-Instruct-v0.2">Mistral 7B Instruct</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" style="color: #0f172a;" onclick="saveSettings()">
+                <i class="fa-solid fa-save"></i> Save All Configuration
+            </button>
+        </div>
+
+    </main>
+
+    <!-- JS Logic -->
+    <script>
+        // --- CONFIGURATION ---
+        const DEFAULT_CONFIG = {
+            clientid: "699259843998-qg5t2emtfubf2gpj7hbfrdgbi3lqocl5.apps.googleusercontent.com", 
+            blogid: "27642592627975591",
+            hfkey: "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", // USER PROVIDED KEY
+            pexelskey: "zktXZfZyxDvRiAHbfd2fTR0cioV6pRyNSLRacwfUU13gWVXl7ZVI73kB",
+            model: "THUDM/glm-4-9b-chat" // GLM-4
+        };
+
+        const APP = {
+            config: {},
+            queue: [],
+            history: [],
+            isLooping: false,
+            stopSignal: false,
+            auth: false
+        };
+
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('autoBloggerHFConfig');
+            if (!saved) {
+                APP.config = DEFAULT_CONFIG;
+                document.getElementById('setupModal').style.display = 'flex';
+            } else {
+                APP.config = JSON.parse(saved);
+            }
+
+            // Populate Inputs
+            document.getElementById('setupClientId').value = APP.config.clientid || "";
+            document.getElementById('setupBlogId').value = APP.config.blogid || "";
+            document.getElementById('setupHFKey').value = APP.config.hfkey || "";
+            document.getElementById('setupPexelsKey').value = APP.config.pexelskey || "";
+
+            document.getElementById('cfgBlogId').value = APP.config.blogid || "";
+            document.getElementById('cfgClientId').value = APP.config.clientid || "";
+            document.getElementById('cfgHFKey').value = APP.config.hfkey || "";
+            document.getElementById('cfgPexelsKey').value = APP.config.pexelskey || "";
+            document.getElementById('cfgModel').value = APP.config.model || "THUDM/glm-4-9b-chat";
+
+            initAuth();
+            loadHistory();
+            updateStats();
+            
+            document.getElementById('importType').addEventListener('change', (e) => {
+                document.getElementById('pasteArea').classList.toggle('hidden', e.target.value !== 'text');
+                document.getElementById('fileArea').classList.toggle('hidden', e.target.value !== 'file');
+            });
+
+            log("System ready. Hugging Face GLM-4 Engine loaded.", "success");
+        });
+
+        window.finishSetup = () => {
+            APP.config.clientid = document.getElementById('setupClientId').value;
+            APP.config.blogid = document.getElementById('setupBlogId').value;
+            APP.config.hfkey = document.getElementById('setupHFKey').value;
+            APP.config.pexelskey = document.getElementById('setupPexelsKey').value;
+            APP.config.model = "THUDM/glm-4-9b-chat";
+            
+            if(!APP.config.hfkey) return alert("Hugging Face Token is required.");
+            
+            localStorage.setItem('autoBloggerHFConfig', JSON.stringify(APP.config));
+            document.getElementById('setupModal').style.display = 'none';
+            log("Configuration Saved.", "success");
+        };
+
+        window.switchView = (viewId) => {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        };
+
+        function initAuth() {
+            gapi.load('client', () => {
+                gapi.client.init({
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/blogger/v3/rest'],
+                }).then(() => console.log("GAPI Ready"));
+            });
+        }
+
+        window.handleAuth = () => {
+            const clientId = APP.config.clientid;
+            if (!clientId) return alert('Please set Client ID first.');
+            const tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: 'https://www.googleapis.com/auth/blogger',
+                callback: (resp) => {
+                    if (resp.access_token) {
+                        APP.auth = true;
+                        document.getElementById('authBtn').innerHTML = '<i class="fa-solid fa-check"></i> Connected';
+                        document.getElementById('authBtn').style.background = '#10b981';
+                        document.getElementById('connectionStatus').innerText = 'Authenticated';
+                        log('Connected to Blogger', 'success');
+                    }
+                }
+            });
+            tokenClient.requestAccessToken({prompt: ''});
+        };
+
+        async function generateAI(topic, template, tone) {
+            if (!APP.config.hfkey) throw new Error("Hugging Face Token missing");
+            
+            let prompt = "";
+            switch(template) {
+                case 'listicle': prompt = `Write a "Top 10" listicle about "${topic}". Use HTML <h3> for items and <p> for descriptions.`; break;
+                case 'review': prompt = `Write a product review for "${topic}". Pros/Cons list in HTML. Balanced tone.`; break;
+                case 'howto': prompt = `Write a step-by-step "How To" guide for "${topic}". Use <h2> for steps.`; break;
+                default: prompt = `Write a high-quality blog post about "${topic}". Use HTML formatting (h2, p, ul).`;
+            }
+            prompt += ` Tone: ${tone}. Output ONLY valid JSON: { "title": "...", "body": "...", "meta": "..." }`;
+
+            // Hugging Face Inference API Call
+            // GLM-4 requires specific chat template tokens
+            const fullPrompt = `<|im_start|>system\nYou are an expert blog content writer. You output valid JSON only.<|im_end|>\n<|im_start|>user\n${prompt}<|im_end|>\n<|im_start|>assistant\n`;
+
+            const response = await fetch(`https://api-inference.huggingface.co/models/${APP.config.model}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${APP.config.hfkey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    inputs: fullPrompt,
+                    parameters: {
+                        max_new_tokens: 2048,
+                        temperature: 0.7,
+                        return_full_text: false
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || "Hugging Face API Error");
+            }
+
+            const data = await response.json();
+            // HF returns an array, we want the first element's generated_text
+            let text = Array.isArray(data) ? data[0].generated_text : data.generated_text;
+            
+            try {
+                // Clean up markdown code blocks if present
+                let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                return JSON.parse(clean);
+            } catch (e) {
+                // Fallback: Try to find a JSON object in the string
+                const match = text.match(/\{[\s\S]*\}/);
+                return match ? JSON.parse(match[0]) : { title: topic, body: text, meta: "Auto generated" };
+            }
+        }
+
+        async function fetchImage(keyword) {
+            if (!APP.config.pexelskey) throw new Error("Pexels Key Missing");
+            const res = await fetch(`https://api.pexels.com/v1/search?query=${keyword}&per_page=1&orientation=landscape`, {
+                headers: { Authorization: APP.config.pexelskey }
+            });
+            const data = await res.json();
+            if (data.photos && data.photos.length > 0) {
+                return data.photos[0].src.large;
+            }
+            throw new Error("No images found");
+        }
+
+        window.generateContent = async (mode) => {
+            const topic = document.getElementById('singleTopic').value;
+            if (!topic) return log("Please enter a topic", "error");
+            const template = document.getElementById('singleTemplate').value;
+            const tone = document.getElementById('singleTone').value;
+            try {
+                log(`Generating content for "${topic}" via HF...`, 'info');
+                const data = await generateAI(topic, template, tone);
+                document.getElementById('postTitle').value = data.title;
+                document.getElementById('postEditor').value = data.body;
+                document.getElementById('postMeta').value = data.meta;
+                if (!document.getElementById('singleTags').value) {
+                    document.getElementById('singleTags').value = topic.split(' ').slice(0, 3).join(', ');
+                }
+                log("Content generated successfully", "success");
+            } catch (e) {
+                log("Error: " + e.message, "error");
+            }
+        };
+
+        window.fetchAndInsertImage = async () => {
+            const topic = document.getElementById('singleTopic').value || "nature";
+            try {
+                log("Fetching image...", "info");
+                const url = await fetchImage(topic);
+                const imgTag = `<div style="text-align:center; margin: 20px 0;"><img src="${url}" alt="${topic}" style="max-width:100%; border-radius:8px;"></div>`;
+                const editor = document.getElementById('postEditor');
+                editor.value = imgTag + "\n" + editor.value;
+                log("Image inserted", "success");
+            } catch (e) { log(e.message, "error"); }
+        };
+
+        window.toggleVisual = () => {
+            const p = document.getElementById('visualPreview');
+            const e = document.getElementById('postEditor');
+            if (p.style.display === 'none') {
+                p.style.display = 'block'; e.style.display = 'none';
+                p.innerHTML = document.getElementById('postTitle').value ? `<h1>${document.getElementById('postTitle').value}</h1>` : '' + document.getElementById('postEditor').value;
+            } else {
+                p.style.display = 'none'; e.style.display = 'block';
+            }
+        };
+        window.formatDoc = (cmd, value) => document.execCommand(cmd, false, value);
+
+        async function publishToBlogger(title, body, tags, isDraft) {
+            if (!APP.auth) throw new Error("Not authenticated");
+            if (!APP.config.blogid) throw new Error("Blog ID missing");
+            const resource = { title: title, content: body, labels: tags ? tags.split(',').map(t=>t.trim()) : [] };
+            return await gapi.client.blogger.posts.insert({ blogId: APP.config.blogid, resource: resource });
+        }
+
+        window.publishPost = async (source) => {
+            const title = document.getElementById('postTitle').value;
+            const body = document.getElementById('postEditor').value;
+            const tags = document.getElementById('singleTags').value;
+            const isDraft = document.getElementById('isDraft').checked; 
+
+            if (!title || !body) return log("Missing title or body", "error");
+            try {
+                log("Publishing...", "info");
+                const requestObj = { 'blogId': APP.config.blogid, 'resource': { 'title': title, 'content': body, 'labels': tags ? tags.split(',') : [] } };
+                const insertRes = await gapi.client.blogger.posts.insert(requestObj);
+                const postId = insertRes.result.id;
+                if (!isDraft) await gapi.client.blogger.posts.publish({ blogId: APP.config.blogid, postId: postId });
+                const status = isDraft ? "Draft" : "Published";
+                log(`Post ${status} successfully!`, "success");
+                addToHistory(title, status, new Date());
+                if (source === 'single') {
+                    document.getElementById('postTitle').value = "";
+                    document.getElementById('postEditor').value = "";
+                }
+            } catch (e) { log("Publish failed: " + e.message, "error"); }
+        };
+
+        window.processImport = () => {
+            let text = "";
+            const type = document.getElementById('importType').value;
+            if (type === 'text') {
+                text = document.getElementById('importText').value;
+            } else {
+                const file = document.getElementById('importFile').files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => { text = e.target.result; addToQueueLogic(text); };
+                    reader.readAsText(file);
+                    return;
+                }
+            }
+            addToQueueLogic(text);
+        };
+
+        function addToQueueLogic(text) {
+            const items = text.split(/[\n,]+/).map(t => t.trim()).filter(t => t);
+            APP.queue = [...APP.queue, ...items];
+            renderQueue();
+            log(`Added ${items.length} items to queue`, "success");
+            updateStats();
+        }
+
+        function renderQueue() {
+            const list = document.getElementById('queueList');
+            list.innerHTML = "";
+            if (APP.queue.length === 0) {
+                list.innerHTML = '<li style="padding:1rem; text-align:center; color: var(--text-light);">Queue is empty</li>';
+            } else {
+                APP.queue.forEach((item, idx) => {
+                    const li = document.createElement('li');
+                    li.style.cssText = "padding: 0.8rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;";
+                    li.innerHTML = `<span>${idx + 1}. ${item}</span> <button onclick="removeQueueItem(${idx})" style="color:var(--danger); border:none; background:none; cursor:pointer; font-weight:bold;">&times;</button>`;
+                    list.appendChild(li);
+                });
+            }
+            document.getElementById('queueCount').innerText = APP.queue.length;
+        }
+
+        window.removeQueueItem = (idx) => { APP.queue.splice(idx, 1); renderQueue(); updateStats(); };
+        window.clearQueue = () => { APP.queue = []; renderQueue(); updateStats(); };
+
+        window.startAutomation = async () => {
+            if (APP.queue.length === 0) return log("Queue is empty!", "error");
+            if (!APP.auth) return log("Please connect Blogger first!", "error");
+
+            APP.isLooping = true;
+            APP.stopSignal = false;
+            document.getElementById('startBatchBtn').classList.add('hidden');
+            document.getElementById('stopBatchBtn').classList.remove('hidden');
+            const template = document.getElementById('batchTemplate').value;
+            const tone = document.getElementById('singleTone').value;
+            const delay = parseInt(document.getElementById('batchDelay').value) * 1000;
+            const useImages = document.getElementById('batchImages').checked;
+            log(`Starting batch processing of ${APP.queue.length} items...`, "info");
+            for (let i = 0; i < APP.queue.length; i++) {
+                if (APP.stopSignal) { log("Process stopped by user.", "warning"); break; }
+                const topic = APP.queue[i];
+                try {
+                    log(`[${i+1}/${APP.queue.length}] Generating: ${topic}...`, "info");
+                    const data = await generateAI(topic, template, tone);
+                    let body = data.body;
+                    if (useImages) {
+                        try {
+                            const imgUrl = await fetchImage(topic);
+                            body = `<div style="text-align:center; margin: 20px 0;"><img src="${imgUrl}" style="max-width:100%; border-radius:8px;"></div>` + body;
+                        } catch(e) { console.log("Img fail"); }
+                    }
+                    log(`Publishing ${data.title}...`, "info");
+                    const insertRes = await gapi.client.blogger.posts.insert({ blogId: APP.config.blogid, resource: { title: data.title, content: body, labels: [topic] } });
+                    await gapi.client.blogger.posts.publish({ blogId: APP.config.blogid, postId: insertRes.result.id });
+                    log(`SUCCESS: Published ${data.title}`, "success");
+                    addToHistory(data.title, "Published", new Date());
+                } catch (e) {
+                    log(`FAILED: ${topic} - ${e.message}`, "error");
+                    addToHistory(topic, "Error", new Date());
+                }
+                APP.queue.shift();
+                renderQueue();
+                updateStats();
+                if (i < APP.queue.length && !APP.stopSignal) {
+                    log(`Waiting ${delay/1000}s...`, "info");
+                    await new Promise(r => setTimeout(r, delay));
+                }
+            }
+            APP.isLooping = false;
+            document.getElementById('startBatchBtn').classList.remove('hidden');
+            document.getElementById('stopBatchBtn').classList.add('hidden');
+            log("Batch processing completed.", "success");
+        };
+
+        window.stopAutomation = () => { APP.stopSignal = true; log("Stopping...", "warning"); };
+
+        function addToHistory(title, status, date) {
+            APP.history.unshift({ title, status, date: date.toLocaleString() });
+            localStorage.setItem('autoBloggerHistory', JSON.stringify(APP.history));
+            renderHistory();
+            updateStats();
+        }
+
+        function loadHistory() {
+            const saved = localStorage.getItem('autoBloggerHistory');
+            if (saved) APP.history = JSON.parse(saved);
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const tbody = document.querySelector('#historyTable tbody');
+            tbody.innerHTML = "";
+            APP.history.forEach(item => {
+                const tr = document.createElement('tr');
+                const badgeClass = item.status === 'Published' ? 'badge-pub' : (item.status === 'Error' ? 'badge-err' : 'badge-draft');
+                tr.innerHTML = `<td>${item.date}</td><td>${item.title}</td><td><span class="badge ${badgeClass}">${item.status}</span></td><td><button class="btn" style="padding: 4px 8px; font-size: 0.8rem; background:#eee;">View</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        window.clearHistory = () => { APP.history = []; localStorage.removeItem('autoBloggerHistory'); renderHistory(); updateStats(); };
+
+        function updateStats() {
+            document.getElementById('statTotal').innerText = APP.history.length;
+            document.getElementById('statQueue').innerText = APP.queue.length;
+            document.getElementById('statStatus').innerText = APP.isLooping ? "Running" : "Idle";
+        }
+
+        function log(msg, type="info") {
+            const dLog = document.getElementById('dashboardLog');
+            const aLog = document.getElementById('automationLog');
+            const time = new Date().toLocaleTimeString();
+            const colorClass = type === 'success' ? 'log-success' : (type === 'error' ? 'log-error' : '');
+            const html = `<div><span class="log-time">[${time}]</span> <span class="${colorClass}">${msg}</span></div>`;
+            dLog.innerHTML += html;
+            aLog.innerHTML += html;
+            dLog.scrollTop = dLog.scrollHeight;
+            aLog.scrollTop = aLog.scrollHeight;
+        }
+    </script>
+</body>
+</html>
